@@ -13,6 +13,15 @@ def read_file(path):
     df = pd.read_csv(path, header=0, index_col=0, sep=';', encoding='cp1251')
     return df
 
+def staff_condition(p):
+    """
+    Функция, подставляющая значения условия в соответствующую строку
+    """
+    t = staff.loc[(staff['staff'] == p['staff']), 'a']
+    return t
+
+
+
 def randon_staff(staff, schedule, week):
     """
     Формируется случайный список фамилий для распределения
@@ -26,14 +35,18 @@ def randon_staff(staff, schedule, week):
 
     return staff
 
-def condition_sum(schedule, condition):
+def condition_sum(schedule, condition, cond_colum):
+    room = schedule['room'].unique()
+    week = schedule['week'].unique()
 
-    for con in condition.columns:
-        for w in condition.index:
-            condition.loc[w,con] = schedule.loc[schedule['week'] == w, con].sum()
-            print()
-
-    return schedule
+    t = pd.DataFrame(columns=['room', 'week', 'day_of_week', 'sum_a'])
+    for r in room:
+        for w in week:
+            day = schedule.loc[schedule['week'] == w ,'day_of_week'].unique()
+            for d in day:
+                q = pd.Series([r, w, d, schedule[(schedule['room'] == r) & (schedule['week'] == w) & (schedule['day_of_week'] == d)].a.sum()], index=t.columns)
+                t = t.append(q, ignore_index=True)
+    return t
 
 
 
@@ -46,12 +59,13 @@ def weekly_allocation(staff, schedule):
         r_staff = randon_staff(staff, schedule, w)
         for r in np.unique(r_staff['room']):
             staff_r = r_staff.loc[r_staff['room'] == r]
-            count_sch_staff = schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count()
+            count_free_place = schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count()
 
-            if staff_r['staff'].count() < count_sch_staff:
-                t = pd.DataFrame(np.repeat([['Бронирование',r, 0]], count_sch_staff - staff_r['staff'].count(), axis=0), columns=staff_r.columns)
+            if staff_r['staff'].count() < count_free_place:
+                t = pd.DataFrame(np.repeat([['Бронирование',r, 0]], count_free_place - staff_r['staff'].count(), axis=0), columns=staff_r.columns)
                 staff_r = pd.concat([staff_r, t], ignore_index=True)
-            schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'] = staff_r.iloc[:count_sch_staff,0].values
+
+            schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'] = staff_r.iloc[:count_free_place,0].values
 
 
 #Определение переменных
@@ -124,22 +138,25 @@ schedule['staff'].loc[(schedule['room'] == staff[staff['staff'] == 'Юдина �
 
 
 
-condition_base = pd.DataFrame(schedule['week'].unique(),columns=['week'])
+condition_base = pd.DataFrame(schedule[['room','week', 'day_of_week']], columns=['room', 'week', 'day_of_week'])
 condition_base['a'] = 0
-condition_base.reindex(condition_base['week'].values)
+
 
 
 schedule_temp =  schedule.copy()
 schedule_temp['a'] = 0
 
 weekly_allocation(staff, schedule_temp)
+#apply возвращая соответсвующее значение из другого датафрейма.
+schedule_temp['a'] = schedule_temp['staff'].apply(staff_condition, axis=1)
+
 schedule_temp = schedule_temp.merge(staff[['staff','a']],how='left', on='staff')
 schedule_temp.fillna(0, inplace=True)
 schedule_temp['a'] = schedule_temp['a_y']
 schedule_temp.drop(columns=['a_x', 'a_y'], inplace=True)
 
 condition_new = condition_base.copy()
-condition_new = condition_sum(schedule_temp, condition_new)
+condition_new = condition_sum(schedule_temp, condition_new, ['a'])
 
 print(schedule_temp)
 
