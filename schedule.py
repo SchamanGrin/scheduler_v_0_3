@@ -1,6 +1,6 @@
 import pandas as pd
-import random
 import numpy as np
+import random
 
 
 def read_date(path):
@@ -50,6 +50,43 @@ def condition_sum(schedule, condition, cond_colum):
 
 
 
+
+def weekly_condition(staff, schedule, condition, week):
+    cond_list = staff[staff[condition] == condition].index
+    room = staff.loc[staff[condition] == condition, 'room'].unique()
+    #week = schedule['week'].unique()
+
+    for w in week:
+        #Находим все уникальные дни недели
+        days = schedule.loc[schedule['week'] == w, 'day_of_week'].unique()
+        #Перемешиваем их
+        np.random.shuffle(days)
+
+        #Для каждого дня
+        for d in days:
+            #Получаем список свободных мест в дне
+            df_days = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
+                                   (schedule['staff'] == 'Free') & (schedule['room']).isin(room)]
+            l = len(df_days)
+            #И если список свободных мест в этот день этой недели больше чем количество сотрудников
+            if l >= len(cond_list):
+                #Для каждого сотрудника из списка
+                for i in range(len(cond_list)):
+                    #Получаем соответствующий по номеру элемент из списка фамилий
+                    person = staff.loc[cond_list[i], 'staff']
+                    person_room = staff.loc[cond_list[i], 'room']
+                    #Ищем первое свободное место
+                    place = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
+                                         (schedule['room'] == person_room) & (schedule['staff'] == 'Free'), 'place'].values[0]
+
+                    #И присваеваем фамилию этому рабочему месту
+                    schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
+                                 (schedule['room'] == person_room) & (schedule['place'] == place), 'staff'] = person
+                #Завершаем цикл для недели
+                break
+
+
+
 def weekly_allocation(staff, schedule):
     """
     В рамках функции сформируется дата фрейм, случайно распределяющий нераспределенный на неделю персонал на свободные места в этой неделе.
@@ -58,11 +95,12 @@ def weekly_allocation(staff, schedule):
     for w in schedule['week'].unique():
         r_staff = randon_staff(staff, schedule, w)
         for r in np.unique(r_staff['room']):
-            staff_r = r_staff.loc[r_staff['room'] == r]
+            staff_r = r_staff.loc[r_staff['room'] == r, ['staff', 'room']]
             count_free_place = schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count()
 
             if staff_r['staff'].count() < count_free_place:
-                t = pd.DataFrame(np.repeat([['Бронирование',r, 0]], count_free_place - staff_r['staff'].count(), axis=0), columns=staff_r.columns)
+
+                t = pd.DataFrame(np.repeat([['Бронирование',r]], count_free_place - staff_r['staff'].count(), axis=0), columns=staff_r.columns)
                 staff_r = pd.concat([staff_r, t], ignore_index=True)
 
             schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'] = staff_r.iloc[:count_free_place,0].values
@@ -125,7 +163,7 @@ schedule['staff'].loc[(schedule['day_of_week'] == 'Friday') & (schedule['staff']
 
 
 staff = read_file('data/staff.csv')
-condition = read_file('data/condition.csv')
+#condition = read_file('data/condition.csv')
 
 
 #Чернецова и Пикулеву на понедельник, вторник
@@ -136,18 +174,61 @@ schedule['staff'].loc[(schedule['room'] == staff[staff['staff'] == 'Пикулё
 schedule['staff'].loc[(schedule['room'] == staff[staff['staff'] == 'Сулименко Ирина']['room'].values[0]) & (schedule['day_of_week'].isin(['Wednesday'])) & (schedule['place'] == 1)] = 'Сулименко Ирина'
 schedule['staff'].loc[(schedule['room'] == staff[staff['staff'] == 'Юдина Иветта']['room'].values[0]) & (schedule['day_of_week'].isin(['Wednesday'])) & (schedule['place'] == 2)] = 'Юдина Иветта'
 
+week = schedule['week'].unique()
+#Разработчиков и Вилянского вместе
+weekly_condition(staff,schedule,'a',week)
 
 
-condition_base = pd.DataFrame(schedule[['room','week', 'day_of_week']], columns=['room', 'week', 'day_of_week'])
-condition_base['a'] = 0
+"""cond_a_list = staff[staff['a'] == 'a'].index
+room = staff.loc[staff['a'] == 'a', 'room'].unique()
+week = schedule['week'].unique()
+#Для каждой недели
+for w in week:
+    #Находим все уникальные дни недели
+    days = schedule.loc[schedule['week'] == w, 'day_of_week'].unique()
+    #Перемешиваем их
+    np.random.shuffle(days)
+
+    #Для каждого дня
+    for d in days:
+        #Получаем список свободных мест в дне
+        df_days = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
+                               (schedule['staff'] == 'Free') & (schedule['room']).isin(room)]
+        l = len(df_days)
+        #И если список свободных мест в этот день этой недели больше чем количество разработчиков
+        if l >= len(cond_a_list):
+            #Получаем номера свободных мест
+            place = df_days['place'].values
+            #Для каждого элемента из списка рабочих мест
+            for i in range(l):
+                #Получаем соответствующий по номеру элемент из списка фамилий
+                person = staff.loc[cond_a_list[i], 'staff']
+                person_room = staff.loc[cond_a_list[i], 'room']
+                #И присваеваем фамилию рабочему месту
+                schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
+                           (schedule['room'] == person_room) & (schedule['place'] == place[i]), 'staff'] = person
+            #Завершаем цикл для недели
+            break"""
 
 
 
+#Пресейлов, сейлов и Слюсаерва раз в две недели
+# В первю неделю в любые дни [Ескин, Прохоров, Шаповалов], [Иноземцев, Круть, Черняев]
+w1 = week[::2]
+weekly_condition(staff,schedule,'b',w1)
+weekly_condition(staff,schedule,'c',w1)
+
+# Во вторую неделю Ескин, Слюсарев, Сугробов, Круть, Лобов
+w2 = week[1::2]
+weekly_condition(staff,schedule,'c',w2)
+weekly_condition(staff,schedule,'d',w2)
+
+# Случайно заполняем оставшиеся места
+weekly_allocation(staff, schedule)
+
+"""#apply возвращая соответсвующее значение из другого датафрейма.
 schedule_temp =  schedule.copy()
 schedule_temp['a'] = 0
-
-weekly_allocation(staff, schedule_temp)
-#apply возвращая соответсвующее значение из другого датафрейма.
 schedule_temp['a'] = schedule_temp['staff'].apply(staff_condition, axis=1)
 
 schedule_temp = schedule_temp.merge(staff[['staff','a']],how='left', on='staff')
@@ -158,7 +239,7 @@ schedule_temp.drop(columns=['a_x', 'a_y'], inplace=True)
 condition_new = condition_base.copy()
 condition_new = condition_sum(schedule_temp, condition_new, ['a'])
 
-print(schedule_temp)
+print(schedule_temp)"""
 
 
 
