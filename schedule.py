@@ -67,14 +67,23 @@ def weekly_condition(staff, schedule, condition, week):
             #Получаем список свободных мест в дне
             df_days = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
                                    (schedule['staff'] == 'Free') & (schedule['room']).isin(room)]
-            l = len(df_days)
+
+
+            # Для каждой комнаты количество свободных мест больше или равно количеству персонала, который надо посадить
+            # по условию
+            flag = []
+            for r in room:
+                t_1 = len(df_days[df_days['room'] == r])
+                t_2 = len(staff.loc[(staff[condition] == condition) & (staff['room'] == r), 'staff'])
+                tf = t_1 >= t_2
+                flag.append(len(df_days[df_days['room'] == r]) >= len(staff.loc[staff[condition] == condition, 'staff']))
             #И если список свободных мест в этот день этой недели больше чем количество сотрудников
-            if l >= len(cond_list):
+            if False not in flag:
                 #Для каждого сотрудника из списка
-                for i in range(len(cond_list)):
+                for pers_id in cond_list:
                     #Получаем соответствующий по номеру элемент из списка фамилий
-                    person = staff.loc[cond_list[i], 'staff']
-                    person_room = staff.loc[cond_list[i], 'room']
+                    person = staff.loc[pers_id, 'staff']
+                    person_room = staff.loc[pers_id, 'room']
                     #Ищем первое свободное место
                     place = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) &
                                          (schedule['room'] == person_room) & (schedule['staff'] == 'Free'), 'place'].values[0]
@@ -220,7 +229,6 @@ weekly_condition(staff,schedule,'c',w1)
 
 # Во вторую неделю Ескин, Слюсарев, Сугробов, Круть, Лобов
 w2 = week[1::2]
-weekly_condition(staff,schedule,'c',w2)
 weekly_condition(staff,schedule,'d',w2)
 
 # Случайно заполняем оставшиеся места
