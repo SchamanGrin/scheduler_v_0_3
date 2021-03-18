@@ -95,11 +95,36 @@ def weekly_condition(staff, schedule, condition, week):
                 break
 
 
-
 def weekly_allocation(staff, schedule):
     """
     В рамках функции сформируется дата фрейм, случайно распределяющий нераспределенный на неделю персонал на свободные места в этой неделе.
     """
+    #Для каждой недели присваеваем свободным местам фамилии людей, для которых еще не забранированы места
+    for w in schedule['week'].unique():
+        rooms = randon_staff(staff, schedule, w)
+        for r in np.unique(rooms['room']):
+
+            while schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count() > 0:
+
+                days = np.unique(schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'day_of_week'])
+                for d in days:
+                    staff_r = randon_staff(staff[staff['room'] == r], schedule.loc[schedule['room'] == r], w)
+                    p = schedule['place'].loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) & (schedule['day_of_week'] == d)]
+                    place = min(p.values)
+
+                    if staff_r['staff'].count() > 0:
+
+                        schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) &
+                                     (schedule['day_of_week'] == d) & (schedule['place'] == place), 'staff'] = staff_r['staff'].iloc[0]
+                    else:
+                        schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) &
+                                     (schedule['day_of_week'] == d) & (schedule['place'] == place), 'staff'] = 'Бронирование'
+
+
+"""def weekly_allocation(staff, schedule):
+   
+    #В рамках функции сформируется дата фрейм, случайно распределяющий нераспределенный на неделю персонал на свободные места в этой неделе.
+   
     #Для каждой недели присваеваем свободным местам фамилии людей, для которых еще не забранированы места
     for w in schedule['week'].unique():
         r_staff = randon_staff(staff, schedule, w)
@@ -111,8 +136,9 @@ def weekly_allocation(staff, schedule):
 
                 t = pd.DataFrame(np.repeat([['Бронирование',r]], count_free_place - staff_r['staff'].count(), axis=0), columns=staff_r.columns)
                 staff_r = pd.concat([staff_r, t], ignore_index=True)
-
-            schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'] = staff_r.iloc[:count_free_place,0].values
+            days = schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'days_of_week'].unique()
+            while schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count() > 0:
+                schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'] = staff_r.iloc[:count_free_place,0].values"""
 
 
 #Определение переменных

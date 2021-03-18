@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
 
-t = [1,2]
-t.extend([3]*4)
+t = np.datetime64('2021-04-20')
+
 print(t)
