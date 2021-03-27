@@ -28,6 +28,9 @@ def replace_day(w,d,c_staff, upd_schedule):
                               (upd_schedule['place'].isin(old_place) & upd_schedule['room'].isin(r))] = 'Бронирование'
     print(1)
 
+def insert_staff(c_staff, ):
+    return
+
 
 
 

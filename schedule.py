@@ -95,31 +95,31 @@ def weekly_condition(staff, schedule, condition, week):
                 break
 
 
-def weekly_allocation(staff, schedule):
+def weekly_allocation(df_staff, df_schedule):
     """
     В рамках функции сформируется дата фрейм, случайно распределяющий нераспределенный на неделю персонал на свободные места в этой неделе.
     """
     #Для каждой недели присваеваем свободным местам фамилии людей, для которых еще не забранированы места
-    for w in schedule['week'].unique():
-        rooms = randon_staff(staff, schedule, w)
+    for w in df_schedule['week'].unique():
+        rooms = randon_staff(df_staff, df_schedule, w)
         for r in np.unique(rooms['room']):
+            df_room = df_schedule[(df_schedule['room'] == r) & (df_schedule['staff'] == 'Free')]
+            df_week = df_room[(df_room['week'] == w)]
+            if df_week.empty:
+                continue
+            days = np.unique(df_week['day_of_week'])
+            for dw in days:
+                staff_r = randon_staff(df_staff[df_staff['room'] == r], df_room, w)
+                df_place = df_week[df_week['day_of_week'] == dw]
+                if df_place.empty:
+                    continue
+                place = df_place.place.min()
+                df_room.staff.loc[(df_room['day_of_week'] == dw) & (df_room['place'] == place)] = \
+                    staff_r['staff'].iloc[0] if staff_r['staff'].count() > 0 else 'Бронирование'
 
-            while schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'staff'].count() > 0:
-
-                days = np.unique(schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r), 'day_of_week'])
-                for d in days:
-                    staff_r = randon_staff(staff[staff['room'] == r], schedule.loc[schedule['room'] == r], w)
-                    p = schedule['place'].loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) & (schedule['day_of_week'] == d)]
-                    place = min(p.values)
-
-                    if staff_r['staff'].count() > 0:
-
-                        schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) &
-                                     (schedule['day_of_week'] == d) & (schedule['place'] == place), 'staff'] = staff_r['staff'].iloc[0]
-                    else:
-                        schedule.loc[(schedule['week'] == w) & (schedule['staff'] == 'Free') & (schedule['room'] == r) &
-                                     (schedule['day_of_week'] == d) & (schedule['place'] == place), 'staff'] = 'Бронирование'
-
+            for i in df_room.index:
+                df_schedule.staff.loc[i] = df_room.staff.loc[i]
+            pass
 
 """def weekly_allocation(staff, schedule):
    
@@ -250,12 +250,12 @@ for w in week:
 #Пресейлов, сейлов и Слюсаерва раз в две недели
 # В первю неделю в любые дни [Ескин, Прохоров, Шаповалов], [Иноземцев, Круть, Черняев]
 w1 = week[::2]
-weekly_condition(staff,schedule,'b',w1)
-weekly_condition(staff,schedule,'c',w1)
+weekly_condition(staff, schedule, 'b', w1)
+weekly_condition(staff, schedule, 'c', w1)
 
 # Во вторую неделю Ескин, Слюсарев, Сугробов, Круть, Лобов
 w2 = week[1::2]
-weekly_condition(staff,schedule,'d',w2)
+weekly_condition(staff, schedule, 'd', w2)
 
 # Случайно заполняем оставшиеся места
 weekly_allocation(staff, schedule)
