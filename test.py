@@ -1,59 +1,77 @@
 import pandas as pd
 import numpy as np
+from lib import *
+pd.options.mode.chained_assignment = None
 
-def read_excel(path):
-    return pd.read_excel(path, header=0, index_col=0)
+df = read_date('data/schedule.csv')
+df_staff = read_file('data/staff.csv')
 
-def read_file(path):
+df_upd = df.loc[df['timestamp'] >= np.datetime64('2021-05-11')]
 
-    df = pd.read_csv(path, header=0, index_col=0, sep=';', encoding='cp1251')
-    return df
+# Очищаем все места кроме дежурной смены и сервис менеджеров
+df_upd['staff'].loc[~df_upd['place'].isin(['Дежурная смена', 'Сервис - менеджер'])] = 'Free'
+# ставим на первую неделю дежурную смену и сервис - менеджеров на четверг, пятницу
 
-def insert_staff(c_staff, day_of_week=[]):
+# сервис - менеджер в среду, четверг и пятницу
+df_upd['staff'].loc[(df_upd['day_of_week'].isin(['Wednesday', 'Friday', 'Thursday'])) & (df_upd['room'] == 421) & (df_upd['place'] == 1)] = 'Сервис - менеджер'
+df_upd['staff'].loc[(df_upd['room'] == 404) & (df_upd['place'] == 1)] = 'Дежурная смена'
+df_upd['staff'].loc[(df_upd['day_of_week'] == 'Tuesday') & (df_upd['room'] == 404) & (df_upd['place'] == 1)] == df_staff['staff'].loc[28]
 
-    return
-
-
-def sort_place(schedule):
-    #Переносим "Бронирование" на последние места дня
-    week = schedule['week'].unique()
-
-    for w in week:
-        days = schedule.loc[schedule['week'] == w, 'day_of_week'].unique()
-        for d in days:
-            rooms = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d), 'room'].unique()
-            for r in rooms:
-                places = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d)
-                                      & (schedule['room'] == r), 'place'].unique()
-                flag = True
-                while flag:
-                    flag = False
-                    for p in places[:-1]:
-                        s_1 = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d)
-                                           & (schedule['place'] == p) & (schedule['room'] == r)]
-                        s_2 = schedule.loc[(schedule['week'] == w) & (schedule['day_of_week'] == d) & (schedule['place'] == (p+1)) & (schedule['room'] == r)]
-                        if s_1['staff'].values == 'Бронирование' and s_2['staff'].values != 'Бронирование':
-                            schedule['staff'].loc[(schedule['week'] == w) & (schedule['day_of_week'] == d)
-                                                  & (schedule['place'] == p) & (schedule['room'] == r)] = s_2['staff'].values
-                            schedule['staff'].loc[(schedule['week'] == w) & (schedule['day_of_week'] == d)
-                                                  & (schedule['place'] == (p+1)) & (schedule['room'] == r)] = 'Бронирование'
-                            flag = True
+# 10го только дежурная смена
+df['staff'].loc[(df['timestamp'] == np.datetime64('2021-05-11')) & (df['staff'] != 'Дежурная смена')] = 'Бронирование'
 
 
+# Чернецов и Прохоов каждый день.
+days = df_upd['timestamp'].unique()
+for d in days:
+    insert_person(df_staff.loc[27], df_upd, d)
+    insert_person(df_staff.loc[29], df_upd, d)
 
-staff = read_file('data/staff.csv')
+# Сейлы и пресейлы во вторник
+days = df_upd['timestamp'].loc[df_upd['day_of_week'] == 'Tuesday'].unique()
+insert_group(df_staff.loc[df_staff['fg'].isin(['ps','sl'])], days, df_upd)
 
-# Все места в 421 заменяются на бронирование 12.04.2021, кроме Сулименко, Юдиной, Пикулевой, Чернецова, Юрченко
-untouched_list = ['Пикулёва Екатерина', 'Сулименко Ирина', 'Сервис - менеджер', 'Чернецов Евгений']
+# Инженеры эксплуатации в среду
+days = df_upd['timestamp'].loc[df_upd['day_of_week'] == 'Wednesday'].unique()
+insert_group(df_staff.loc[df_staff['fg'] == 'en'], days, df_upd)
 
-schedule = read_excel('data/schedule.xlsx')
+# Архитекторы и продукты четверг
+days = df_upd['timestamp'].loc[df_upd['day_of_week'] == 'Thursday'].unique()
+insert_group(df_staff.loc[df_staff['fg'] == 'ar'], days, df_upd)
+insert_group(df_staff.loc[df_staff['fg'] == 'pr'], days, df_upd)
 
-#Получаем все места в 421 кроме тех, кто в списке untouched_list
-upd_421 = schedule.loc[(schedule['room'] == 421) & (schedule['timestamp'] >= np.datetime64('2021-04-12')) & (~schedule['staff'].isin(untouched_list))]
+# Сервис менеджеры понедельник
+days = df_upd['timestamp'].loc[df_upd['day_of_week'] == 'Monday'].unique()
+insert_group(df_staff.loc[df_staff['fg'] == 'sm'], days, df_upd)
 
-# Ставим на все места Free
-upd_421.loc['staff'] = 'Free'
+# Аналитиков в пятницу
+days = df_upd['timestamp'].loc[df_upd['day_of_week'] == 'Friday'].unique()
+insert_group(df_staff.loc[df_staff['fg'] == 'ba'], days, df_upd)
 
-upd_421.loc[upd_421['place'] == 8] = 'Бронирование'
+# Разрабов где поместятся
+weeks = df_upd['week'].unique()
+random_insert_group(df_staff.loc[df_staff['fg'] == 'dv'], weeks, df_upd)
 
-print(1)
+# Панкратова не в среду
+for w in weeks:
+    days = df_upd['timestamp'].loc[(df_upd['day_of_week'] != 'Wednesday') & (df_upd['week'] == w)].unique()
+    random_insert_person(df_staff.loc[8], days, df_upd)
+
+# Остальных случайно
+"""for w in weeks:
+    t = df_upd['staff'].loc[df_upd['week'] == w].unique()
+    staffs = df_staff.loc[~df_staff['staff'].isin(t)]
+    days = df_upd['timestamp'].loc[df_upd['week'] == w].unique()
+    for person in staffs:
+        print(person)
+        #random_insert_person(person, days, df_upd)"""
+
+
+# Все строки с Free в Бронирование
+df_upd['staff'].loc[df_upd['staff'] == 'Free'] = 'Бронирование'
+
+df['staff'].loc[df_upd.index] = df_upd.loc[:,'staff']
+df.to_excel('data/upd_schedule.xlsx')
+
+
+
