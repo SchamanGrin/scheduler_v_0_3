@@ -170,3 +170,8 @@ def random_insert_person(person, days, schedule):
         insert_person(person, schedule, day[0])
 
     return 0
+
+def holidays(days, df):
+    df['staff'].loc[df['timestamp'].isin(days) & (df['staff'] != 'Дежурная смена')] = 'Free'
+
+
