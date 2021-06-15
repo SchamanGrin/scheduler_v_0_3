@@ -26,12 +26,14 @@ def insert_person(ins_stuff, schedule, timestamp):
         room - Номер комнаты в формате Integer
         place - Номер места в формате Integer
         staff - Фамилия и имя сотрудника в фомрмате String
+    timestamp - дата в формате numpy.datetime64
     """
     room = ins_stuff['room']
     place = schedule.loc[(schedule['timestamp'] == timestamp) & (schedule['room'] == room)
                          & (schedule['staff'] == 'Free'), 'place'].min()
-    schedule['staff'].loc[(schedule['timestamp'] == timestamp) & (schedule['room'] == room)
-                          & (schedule['place'] == place)] = ins_stuff['staff']
+    if schedule['staff'].loc[(schedule['timestamp'] == timestamp) & (schedule['staff'] == ins_stuff['staff'])].count() == 0:
+        schedule['staff'].loc[(schedule['timestamp'] == timestamp) & (schedule['room'] == room)
+                              & (schedule['place'] == place)] = ins_stuff['staff']
     return 0
 
 
@@ -173,5 +175,29 @@ def random_insert_person(person, days, schedule):
 
 def holidays(days, df):
     df['staff'].loc[df['timestamp'].isin(days) & (df['staff'] != 'Дежурная смена')] = 'Free'
+
+
+def change_place(person, new_dates, schedule):
+    """
+    Измеяем места сотрудника на новые в дни new_dates по  dataframe schedule
+    param:
+    person - dataframe с столбцами:
+        staff - Фамилия и имя сотрудника в формате String
+        room - номер комнаты к которой в которой размещается сотрудник в формате Integer
+    new_dates - список дней в которые необходимо вывести сотрудника
+    schedule - DataFrame с столбцами:
+        timestamp - дата в формате numpy.datetime64
+        month - наименование месяца в формате String
+        week - номер недели в формате Integer
+        day_of_week - наименовение дня недели в формате String
+        room - Номер комнаты в формате Integer
+        place - Номер места в формате Integer
+        staff - Фамилия и имя сотрудника в формате String
+    """
+
+    schedule['staff'].loc[schedule['staff'] == person['staff']] = 'Free'
+    for d in new_dates:
+        insert_person(person, schedule,d)
+
 
 
